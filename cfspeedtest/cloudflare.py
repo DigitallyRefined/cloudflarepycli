@@ -176,7 +176,8 @@ class CloudflareSpeedtest:
     def metadata(self) -> TestMetadata:
         """Retrieve test location code, IP address, ISP, city, and region."""
         result_data: dict[str, str] = self.request_sess.get(
-            "https://speed.cloudflare.com/meta"
+            "https://speed.cloudflare.com/meta",
+            headers={"Referer": "https://speed.cloudflare.com/"}
         ).json()
         return TestMetadata(
             result_data.get("clientIp"),
