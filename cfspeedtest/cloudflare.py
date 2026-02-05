@@ -14,6 +14,8 @@ from typing import Any, NamedTuple
 
 import requests
 
+from cfspeedtest.version import __version__
+
 log = logging.getLogger("cfspeedtest")
 
 
@@ -171,14 +173,34 @@ class CloudflareSpeedtest:
 
         self.tests = tests
         self.request_sess = requests.Session()
+        self.request_sess.headers.update(
+            {
+                "Referer": "https://speed.cloudflare.com/",
+                "User-Agent": f"cloudflarepycli/{__version__}",
+            }
+        )
         self.timeout = timeout
+
+    @staticmethod
+    def _parse_server_timing(header_value: str) -> float:
+        """Parse the server timing header into seconds."""
+        parts = [part.strip() for part in header_value.split(",") if part.strip()]
+        for part in parts:
+            if "dur=" in part:
+                duration = part.split("dur=")[-1]
+                return float(duration) / 1e3
+            if "=" in part:
+                duration = part.split("=")[-1]
+                return float(duration) / 1e3
+        raise ValueError("Server-Timing header did not include a duration")
 
     def metadata(self) -> TestMetadata:
         """Retrieve test location code, IP address, ISP, city, and region."""
-        result_data: dict[str, str] = self.request_sess.get(
-            "https://speed.cloudflare.com/meta",
-            headers={"Referer": "https://speed.cloudflare.com/"}
-        ).json()
+        response = self.request_sess.get(
+            "https://speed.cloudflare.com/meta", timeout=self.timeout
+        )
+        response.raise_for_status()
+        result_data: dict[str, str] = response.json()
         return TestMetadata(
             result_data.get("clientIp"),
             result_data.get("asOrganization"),
@@ -201,13 +223,35 @@ class CloudflareSpeedtest:
             r = self.request_sess.request(
                 test.type.value, url, data=data, timeout=self.timeout
             )
-            coll.full.append(time.time() - start)
-            coll.server.append(
-                float(r.headers["Server-Timing"].split("=")[1].split(",")[0]) / 1e3
-            )
-            coll.request.append(
-                r.elapsed.seconds + r.elapsed.microseconds / 1e6
-            )
+            r.raise_for_status()
+
+            if test.type == TestType.Down and len(r.content) < test.size:
+                raise ValueError(
+                    "Download response size smaller than expected"
+                )
+
+            full_time = time.time() - start
+            server_timing_header = r.headers.get("Server-Timing")
+            if not server_timing_header:
+                raise ValueError("Missing Server-Timing header")
+
+            server_time = self._parse_server_timing(server_timing_header)
+            request_time = r.elapsed.total_seconds()
+
+            if server_time >= full_time:
+                log.warning(
+                    "Server timing >= full time (server=%s, full=%s); clamping.",
+                    server_time,
+                    full_time,
+                )
+                server_time = max(full_time - 1e-6, 0.0)
+
+            if server_time >= request_time:
+                server_time = max(request_time - 1e-6, 0.0)
+
+            coll.full.append(full_time)
+            coll.server.append(server_time)
+            coll.request.append(request_time)
         return coll
 
     def _sprint(

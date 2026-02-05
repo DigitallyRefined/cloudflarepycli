@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+# cloudflarepycli@2.1.2-rc
+
+## Change
+
+- fix response timing processing
+
+# cloudflarepycli@2.1.1-rc
+
+## Change
+
+- add referer header to fix 400 error
+
 # cloudflarepycli@2.1.0
 
 ## Change
