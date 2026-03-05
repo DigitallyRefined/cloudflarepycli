@@ -81,10 +81,13 @@ class TestTimers(NamedTuple):
     def to_speeds(self, test: TestSpec) -> list[int]:
         """Compute the test speeds in bits per second from its type and size."""
         if test.type == TestType.Up:
-            return [int(test.bits / server_time) for server_time in self.server]
+            return [
+                int(test.bits / st) if st > 0 else int(test.bits / max(ft, 1e-6))
+                for st, ft in zip(self.server, self.full)
+            ]
         return [
-            int(test.bits / (full_time - server_time))
-            for full_time, server_time in zip(self.full, self.server)
+            int(test.bits / (ft - st)) if (ft - st) > 0 else int(test.bits / max(ft, 1e-6))
+            for ft, st in zip(self.full, self.server)
         ]
 
     def to_latencies(self) -> list[float]:

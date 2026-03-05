@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# cloudflarepycli@2.1.3-rc
+
+## Change
+
+- Fix ZeroDivisionError
+
 # cloudflarepycli@2.1.2-rc
 
 ## Change
