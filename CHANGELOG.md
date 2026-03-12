@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# cloudflarepycli@2.1.4-rc
+
+## Change
+
+- feat: Enhance `Server-Timing` header parsing for robustness and add checks for empty test samples.
+
 # cloudflarepycli@2.1.3-rc
 
 ## Change
