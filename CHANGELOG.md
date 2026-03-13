@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# cloudflarepycli@2.1.5-rc
+
+## Change
+
+- fix: Return 0.0 and log a debug message when the Server-Timing header lacks a valid duration, instead of raising a ValueError.
+
 # cloudflarepycli@2.1.4-rc
 
 ## Change
