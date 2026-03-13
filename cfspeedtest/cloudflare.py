@@ -204,7 +204,11 @@ class CloudflareSpeedtest:
                         return float(clean_value) / 1e3
                     except (ValueError, TypeError):
                         continue
-        raise ValueError("Server-Timing header did not include a valid duration")
+        log.debug(
+            "Server-Timing header did not include a valid duration: %s. Falling back to 0.0",
+            header_value,
+        )
+        return 0.0
 
     def metadata(self) -> TestMetadata:
         """Retrieve test location code, IP address, ISP, city, and region."""
