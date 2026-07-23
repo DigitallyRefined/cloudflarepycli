@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+# cloudflarepycli@2.1.6-rc
+
+## Change
+
+- Fix incorrect upload speed calculation. The Cloudflare Speed Test __up endpoint now returns a new response header: cf-meta-upload-bytes — the actual number of bytes the server accepted for the upload (in bytes).
+
 # cloudflarepycli@2.1.5-rc
 
 ## Change

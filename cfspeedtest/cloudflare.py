@@ -77,13 +77,26 @@ class TestTimers(NamedTuple):
     """The times taken to process the requests as reported by the worker."""
     request: list[float]
     """The internal client times elapsed to complete the requests."""
+    upload_bytes: list[int] | None = None
+    """Per-iteration server-accepted upload bytes from cf-meta-upload-bytes."""
 
     def to_speeds(self, test: TestSpec) -> list[int]:
-        """Compute the test speeds in bits per second from its type and size."""
+        """Compute the test speeds in bits per second from its type and size.
+
+        For uploads, uses the server-accepted byte count from the
+        cf-meta-upload-bytes response header when available, falling back to
+        the requested payload size.
+        """
         if test.type == TestType.Up:
             return [
-                int(test.bits / st) if st > 0 else int(test.bits / max(ft, 1e-6))
-                for st, ft in zip(self.server, self.full)
+                int((ub * 8 if ub else test.bits) / st)
+                if st > 0
+                else int((ub * 8 if ub else test.bits) / max(ft, 1e-6))
+                for st, ft, ub in zip(
+                    self.server,
+                    self.full,
+                    self.upload_bytes or [None] * len(self.server),
+                )
             ]
         return [
             int(test.bits / (ft - st)) if (ft - st) > 0 else int(test.bits / max(ft, 1e-6))
@@ -228,6 +241,7 @@ class CloudflareSpeedtest:
     def run_test(self, test: TestSpec) -> TestTimers:
         """Run a test specification iteratively and collect timers."""
         coll = TestTimers([], [], [])
+        upload_bytes: list[int] = []
         url = f"https://speed.cloudflare.com/__down?bytes={test.size}"
         data = None
         if test.type == TestType.Up:
@@ -268,7 +282,18 @@ class CloudflareSpeedtest:
             coll.full.append(full_time)
             coll.server.append(server_time)
             coll.request.append(request_time)
-        return coll
+
+            if test.type == TestType.Up:
+                ub = r.headers.get("cf-meta-upload-bytes")
+                if ub is not None:
+                    try:
+                        upload_bytes.append(int(ub))
+                    except (ValueError, TypeError):
+                        pass
+
+        return TestTimers(
+            coll.full, coll.server, coll.request, upload_bytes or None
+        )
 
     def _sprint(
         self, label: str, result: TestResult, *, meta: bool = False
