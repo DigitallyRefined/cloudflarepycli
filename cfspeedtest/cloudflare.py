@@ -200,10 +200,11 @@ class CloudflareSpeedtest:
     @staticmethod
     def _parse_server_timing(header_value: str) -> float:
         """Parse the server timing header into seconds."""
-        # Split by comma to get individual metrics
+        worker_dur: float | None = None
+        fallback_dur: float | None = None
         metrics = [m.strip() for m in header_value.split(",") if m.strip()]
         for metric in metrics:
-            # Split by semicolon to get parameters
+            metric_name = metric.split(";")[0].strip().lower()
             params = [p.strip() for p in metric.split(";") if p.strip()]
             for param in params:
                 if "=" not in param:
@@ -211,12 +212,17 @@ class CloudflareSpeedtest:
                 name, value = param.split("=", 1)
                 if name.strip().lower() == "dur":
                     try:
-                        # Strip quotes and extra characters if present
-                        # Users might have malformed headers like dur=0"
                         clean_value = value.strip().strip('"').strip("'")
-                        return float(clean_value) / 1e3
+                        dur = float(clean_value) / 1e3
                     except (ValueError, TypeError):
                         continue
+                    if metric_name == "cfSpeedWorker":
+                        worker_dur = dur
+                    fallback_dur = dur
+        if worker_dur is not None:
+            return worker_dur
+        if fallback_dur is not None:
+            return fallback_dur
         log.debug(
             "Server-Timing header did not include a valid duration: %s. Falling back to 0.0",
             header_value,
